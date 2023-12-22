@@ -247,7 +247,8 @@ class config:
 if __name__ == '__main__':
     config = config()
     same_seed(config.seed)
-    print(config.device)
+    print(f'{torch.__version__=}\n{config.device=}')
+    # print(config.device)
 
     #===data processing===将原数据<class 'PIL.Image.Image'>转成tensor，并作标准化处理
     transform=transforms.Compose([transforms.ToTensor()])
