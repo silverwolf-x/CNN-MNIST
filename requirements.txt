@@ -1,4 +1,4 @@
-torch
+# torch在pytorch官网中下载cuda版本
 tqdm
 numpy
 pandas
