@@ -245,6 +245,7 @@ class config:
 
 
 if __name__ == '__main__':
+    start_time = time.time()  # 获取当前时间
     config = config()
     same_seed(config.seed)
     print(f'{torch.__version__=}\n{config.device=}')
@@ -274,9 +275,6 @@ if __name__ == '__main__':
     # print(model)
     train_loss, valid_loss, best_loss = trainer(train_loader, valid_loader,model)
 
-    #===plot loss===
-    loss_plot(train_loss, valid_loss)
-
     #===predict===
     model = MyModel().to(config.device)
     model.load_state_dict(torch.load(config.save_model(best_loss),map_location=config.device))
@@ -288,9 +286,14 @@ if __name__ == '__main__':
 
     #===confusion_matrix===
     cm=confusion_matrix(test_data.targets.numpy(),preds,labels=[i for i in range(10)])
+    end_time = time.time() 
+
+    #===plot loss===
+    loss_plot(train_loss, valid_loss)
     cm_plot(cm,accuracy)
     print(cm)
 
     #===incorrect comparasion===
     incorrect_plot(test_data,preds,incorrect_index)
     print('===FINISH!===')
+    print(f'Total time: {end_time - start_time:.2f} seconds')
