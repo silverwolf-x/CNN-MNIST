@@ -34,7 +34,8 @@ import math
 import os
 import torch
 import torch.nn as nn
-from torch.utils.data import  DataLoader, random_split
+from torch.utils.data import DataLoader, random_split
+from torch.optim.lr_scheduler import StepLR
 from torchvision import datasets, transforms
 from torchvision.utils import make_grid
 from tqdm import tqdm
@@ -55,40 +56,41 @@ def same_seed(seed):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
+
 class MyModel(nn.Module):
     '''定义模型'''
+
     def __init__(self):
         super(MyModel, self).__init__()
-        self.conv = nn.Sequential(# (1,28,28)
-            nn.Conv2d(in_channels=1, out_channels=6, kernel_size=(5, 5)),nn.ReLU(),# (6,24,24)
-            nn.MaxPool2d((2,2)),# (6,12,12)
-            nn.Conv2d(6, 12, 3),nn.ReLU(),# (12,10,10)
-            nn.MaxPool2d((2,2))# (12,5,5)
-            )
+        self.conv = nn.Sequential(  # (1,28,28)
+            nn.Conv2d(in_channels=1, out_channels=6, kernel_size=(5, 5)),
+            nn.ReLU(),  # (6,24,24)
+            nn.MaxPool2d((2, 2)),  # (6,12,12)
+            nn.Conv2d(6, 12, 3),
+            nn.ReLU(),  # (12,10,10)
+            nn.MaxPool2d((2, 2))  # (12,5,5)
+        )
 
-        self.fc = nn.Sequential(
-            nn.Linear(12*5*5, 128),
-            nn.ReLU(),
-            nn.Linear(128, 32),
-            nn.ReLU(),
-            nn.Linear(32, 10)
-            )
-        self.net = nn.Sequential(# (1,28,28)
-            nn.Conv2d(in_channels=1, out_channels=6, kernel_size=(5, 5)),nn.ReLU(),# (6,24,24)
-            nn.MaxPool2d((2,2)),# (6,12,12)
-            nn.Conv2d(6, 12, 3),nn.ReLU(),# (12,10,10)
-            nn.MaxPool2d((2,2)),# (12,5,5)
+        self.fc = nn.Sequential(nn.Linear(12 * 5 * 5, 128), nn.ReLU(),
+                                nn.Linear(128, 32), nn.ReLU(),
+                                nn.Linear(32, 10))
+        self.net = nn.Sequential(  # (1,28,28)
+            nn.Conv2d(in_channels=1, out_channels=6, kernel_size=(5, 5)),
+            nn.ReLU(),  # (6,24,24)
+            nn.MaxPool2d((2, 2)),  # (6,12,12)
+            nn.Conv2d(6, 12, 3),
+            nn.ReLU(),  # (12,10,10)
+            nn.MaxPool2d((2, 2)),  # (12,5,5)
             nn.Flatten(),
-            nn.Linear(12*5*5, 128),
+            nn.Linear(12 * 5 * 5, 128),
             nn.ReLU(),
             nn.Linear(128, 32),
             nn.ReLU(),
-            nn.Linear(32, 10)
-            )
+            nn.Linear(32, 10))
 
     def forward(self, x):
         x = self.conv(x)
-        x = x.view(x.size(0),-1)
+        x = x.view(x.size(0), -1)
         x = self.fc(x)
         return x
 
@@ -97,15 +99,20 @@ def trainer(train_loader, valid_loader, model):
     #===prepare===
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
-    best_loss = math.inf
-    record_train_loss = []
-    record_valid_loss = []
+    scheduler = StepLR(optimizer, step_size=1, gamma=config.gamma)  # 变化的学习率
     early_stop_count = 0
+    record = {
+        'train_loss': [],
+        'valid_loss': [],
+        'valid_acc': [],
+        'best_loss': 1e5,
+        'best_epoch': 0
+    }
 
     for epoch in range(config.n_epoches):
         #===train mode===
         model.train()
-        loss_record = []
+        train_loss = 0
         train_loop = tqdm(train_loader, position=0, ncols=100, leave=False)
         for x, y in train_loop:
             x, y = x.to(config.device), y.to(config.device)
@@ -113,44 +120,55 @@ def trainer(train_loader, valid_loader, model):
             # targets的类型是要求long(int64)，这里对齐
             loss = criterion(y_pred, y.long())
             # 清零梯度，反向传播，更新权重
-            optimizer.zero_grad()
+            scheduler.zero_grad()
             loss.backward()
-            optimizer.step()
+            scheduler.step()
             # 进度条设置
             train_loop.set_description(f'Epoch [{epoch}/{config.n_epoches}]')
             train_loop.set_postfix({'loss': loss.item()})
-            loss_record.append(loss.item())
-        record_train_loss.append(np.mean(loss_record))
+            train_loss += loss.item()
+        train_loss = train_loss / len(train_loader.dataset)
+        record['train_loss'].append(train_loss)
 
         #===evaluate mode===
         model.eval()
-        loss_record = []
-        correct=0
+        valid_loss = 0
+        correct = 0
         for x, y in valid_loader:
             x, y = x.to(config.device), y.to(config.device)
             with torch.no_grad():  # 减少内存损耗
                 output = model(x)
                 loss = criterion(output, y.long())
-                pred = torch.max(output, 1)[1]
+                pred = output.argmax(dim=1)
+
                 correct += pred.eq(y).sum()
-                loss_record.append(loss.item())
-        accuracy=correct/(60000*config.valid_ratio)
-        record_valid_loss.append(np.mean(loss_record))
+                valid_loss += loss.item()
+        valid_accuracy = correct / len(valid_loader.dataset)
+        valid_loss = valid_loss / len(valid_loader.dataset)
+        record['valid_loss'].append(valid_loss)
+        record['valid_acc'].append(valid_accuracy)
 
         #===early stopping===
-        if record_valid_loss[-1] < best_loss:
-            best_loss = record_valid_loss[-1]
-            print(f'Now model with loss {best_loss:4f} valid accuracy {accuracy:4f}... from epoch {epoch}')
+        if record['valid_loss'][-1] < record['best_loss']:
+            record['best_loss'] = record['valid_loss'][-1]
+            record['best_epoch'] = epoch
+            print(
+                f"Now model with loss {record['best_loss']:.2e}, valid accuracy {record['valid_acc'][-1]:.4f}... from epoch {epoch}"
+            )
             early_stop_count = 0
         else:
             early_stop_count += 1
         if early_stop_count >= config.early_stop:
-            print(f'Model is not improving for {config.early_stop} epoches. The last epoch is {epoch}.')
+            print(
+                f'Model is not improving for {config.early_stop} epoches. The last epoch is {epoch}.'
+            )
             break
     # save_path=config.save(config.time+f'model_{loss:.3f}.ckpt')
-    torch.save(model.state_dict(), config.save_model(best_loss))
-    print(f'Saving model with loss {best_loss:4f}... from epoch {epoch}')
-    return record_train_loss, record_valid_loss, best_loss
+    torch.save(model.state_dict(), config.save_model(record['best_loss']))
+    print(
+        f"Saving model with loss {record['best_loss']:4f}... from epoch {record['best_epoch']}"
+    )
+    return record['train_loss'], record['valid_loss'], record['best_loss']
 
 
 def loss_plot(train_loss, valid_loss):
@@ -175,41 +193,53 @@ def predict(test_data, model):
     incorrect_index = []
     for i, (x, y) in tqdm(enumerate(test_data), position=0, ncols=100):
         # (B, 28, 28)-->(B, 1, 28, 28)
-        x = torch.unsqueeze(x,dim=1).to(config.device)
+        x = torch.unsqueeze(x, dim=1).to(config.device)
         with torch.no_grad():
             output = model(x)
-            y_pred = torch.max(output, 1)[1].detach().cpu().numpy()[0]
+            y_pred = output.argmax(dim=1).cpu().numpy().squeeze()
             preds.append(y_pred)
             if (y_pred != y):
                 incorrect_index.append(i)
-    return preds, 1- len(incorrect_index) / len(test_data), incorrect_index
+    return preds, 1 - len(incorrect_index) / len(test_data), incorrect_index
 
-def cm_plot(cm,accuracy):
+
+def cm_plot(cm, accuracy):
     plt.figure()
-    sns.heatmap(cm,annot=True,fmt='d',linewidths=0.3,cmap=sns.color_palette('Blues'))
+    sns.heatmap(cm,
+                annot=True,
+                fmt='d',
+                linewidths=0.3,
+                cmap=sns.color_palette('Blues'))
     plt.xlabel('predict')
     plt.ylabel('true')
     plt.title(f"accuracy{accuracy:}_model's confusion matrix")
     plt.savefig(config.save('confusion matrix.png'))
     plt.show()
 
-def incorrect_plot(test_data,preds,incorrect_index):
+
+def incorrect_plot(test_data, preds, incorrect_index):
     '''绘制左右子图，每个图像的位置上绘制相应的标签数字'''
     num_images = len(incorrect_index)
     images = [test_data[i][0] for i in incorrect_index]
 
-    fix_rows = 10 # 列
+    fix_rows = 10  # 列
     fig, axs = plt.subplots(1, 2)
     axs[0].imshow(make_grid(images, nrow=fix_rows).permute(1, 2, 0))
     axs[0].set_title('True images')
 
     white_image = torch.ones_like(images[0]).fill_(255)
-    axs[1].imshow(make_grid([white_image]*num_images, nrow=fix_rows).permute(1, 2, 0))
+    axs[1].imshow(
+        make_grid([white_image] * num_images, nrow=fix_rows).permute(1, 2, 0))
     axs[1].set_title('Predicts')
     axs[1].axis('off')
     for i in range(num_images):
         # 每个框线2像素
-        axs[1].text(i%fix_rows*30 + 16, i//fix_rows*30 + 16, str(preds[i]), color='black', ha='center',va='center')
+        axs[1].text(i % fix_rows * 30 + 16,
+                    i // fix_rows * 30 + 16,
+                    str(preds[i]),
+                    color='black',
+                    ha='center',
+                    va='center')
 
     plt.suptitle('incorrect comparison')
     plt.savefig(config.save('incorrect comparison.png'))
@@ -218,46 +248,58 @@ def incorrect_plot(test_data,preds,incorrect_index):
 
 class config:
     '''超参数设定，用`print(pd.DataFrame([config.__dict__]))`查看当前参数'''
+
     def __init__(self):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.seed = 45
-        self.batch_size = 512
+        self.batch_size = 1024
         self.valid_ratio = 0.1
         self.folder = 'run'
         # 路径名不能出现冒号
-        self.time = time.strftime(r"%Y-%m-%d_%H.%M_",time.localtime())
+        self.time = time.strftime(r"%Y-%m-%d_%H.%M_", time.localtime())
         #-==Important Hyperparameters===
-        self.early_stop = 5
+        self.gamma = 0.7
+        self.early_stop = 3
         self.learning_rate = 10e-3
         self.n_epoches = 100
 
     def save(self, path: str):
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
-        return os.path.join(self.folder, self.time+path)
+        return os.path.join(self.folder, self.time + path)
 
     def save_model(self, loss, accuracy=None):
-        if accuracy==None:
-            path = f'loss{loss:4f}_model.ckpt'
+        if accuracy == None:
+            path = f'loss{loss:.4f}_model.ckpt'
         else:
-            path = f'accuracy{accuracy:3f}_model.ckpt'
+            path = f'accuracy{accuracy:.3f}_model.ckpt'
         return self.save(path)
 
 
 if __name__ == '__main__':
+    start_time = time.time()  # 获取当前时间
     config = config()
     same_seed(config.seed)
     print(f'{torch.__version__=}\n{config.device=}')
-    # print(config.device)
+    if config.device == 'cuda':
+        torch.backends.cudnn.enabled = True
+        torch.backends.cudnn.benchmark = True
 
     #===data processing===将原数据<class 'PIL.Image.Image'>转成tensor，并作标准化处理
-    transform=transforms.Compose([transforms.ToTensor()])
-    train_data = datasets.MNIST(root='./', train=True, download=True,transform=transform)
-    test_data = datasets.MNIST(root='./', train=False, download=True,transform=transform)
+    transform = transforms.Compose([transforms.ToTensor()])
+    train_data = datasets.MNIST(root='./',
+                                train=True,
+                                download=True,
+                                transform=transform)
+    test_data = datasets.MNIST(root='./',
+                               train=False,
+                               download=True,
+                               transform=transform)
 
     n_valid = int(len(train_data) * config.valid_ratio)
     n_train = len(train_data) - n_valid
-    train_dataset, valid_dataset = random_split(train_data, [n_train, n_valid],
+    train_dataset, valid_dataset = random_split(
+        train_data, [n_train, n_valid],
         torch.Generator().manual_seed(config.seed))
 
     #======data processing end==
@@ -266,31 +308,39 @@ if __name__ == '__main__':
                                 batch_size=config.batch_size,
                                 shuffle=True,
                                 pin_memory=True,
+                                num_workers=1,
                                 drop_last=True),
         [train_dataset, valid_dataset])
 
     #===training===
     model = MyModel().to(config.device)
     # print(model)
-    train_loss, valid_loss, best_loss = trainer(train_loader, valid_loader,model)
-
-    #===plot loss===
-    loss_plot(train_loss, valid_loss)
+    train_loss, valid_loss, best_loss = trainer(train_loader, valid_loader,
+                                                model)
 
     #===predict===
     model = MyModel().to(config.device)
-    model.load_state_dict(torch.load(config.save_model(best_loss),map_location=config.device))
+    model.load_state_dict(
+        torch.load(config.save_model(best_loss), map_location=config.device))
     # 使用之前的model迁移学习
     # model.load_state_dict(torch.load(r'.\run\2023-04-18_22.38_epoch1000_score0.989000_model.ckpt',map_location=config.device),strict=False)
-    preds, accuracy, incorrect_index  = predict(test_data, model)
-    print(f'test accuracy:{accuracy:4f}')
-    os.rename(config.save_model(best_loss),config.save_model(best_loss, accuracy))
+    preds, accuracy, incorrect_index = predict(test_data, model)
+    print(f'test accuracy:{accuracy:.4f}')
+    os.rename(config.save_model(best_loss),
+              config.save_model(best_loss, accuracy))
 
     #===confusion_matrix===
-    cm=confusion_matrix(test_data.targets.numpy(),preds,labels=[i for i in range(10)])
-    cm_plot(cm,accuracy)
+    cm = confusion_matrix(test_data.targets.numpy(),
+                          preds,
+                          labels=[i for i in range(10)])
+    end_time = time.time()
+
+    #===plot loss===
+    loss_plot(train_loss, valid_loss)
+    cm_plot(cm, accuracy)
     print(cm)
 
     #===incorrect comparasion===
-    incorrect_plot(test_data,preds,incorrect_index)
+    incorrect_plot(test_data, preds, incorrect_index)
     print('===FINISH!===')
+    print(f'Total time: {end_time - start_time:.2f} seconds')
