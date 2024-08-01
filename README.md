@@ -33,3 +33,13 @@ UserWarning: (Triggered internally at  ..\torch\csrc\utils\tensor_numpy.cpp:180.
 
 ## v1.2 2023-11-19
 上传github存档
+
+## v2.0 alpha 2024-09-01
+
+- 暂时取消学习率，即使研究表明衰减自适应优化器和需要不需要LR scheduler几乎是的没有关系的，他们经常需要同时（叠加）工作。https://www.zhihu.com/question/315772308/answer/1636730368
+- numworker = 1 -->0 ，加快整体速度
+- train_loop 新设置mininterval=1，并在train_loop.set_postfix设置refresh=False
+- batch:256
+TODO list:
+1. 比较各optim收敛速率
+2. 改为轻量代码

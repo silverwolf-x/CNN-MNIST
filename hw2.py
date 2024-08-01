@@ -98,8 +98,7 @@ class MyModel(nn.Module):
 def trainer(train_loader, valid_loader, model):
     #===prepare===
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
-    scheduler = StepLR(optimizer, step_size=1, gamma=config.gamma)  # 变化的学习率
+    optimizer = torch.optim.ASGD(model.parameters())# 变化的学习率
     early_stop_count = 0
     record = {
         'train_loss': [],
@@ -113,19 +112,20 @@ def trainer(train_loader, valid_loader, model):
         #===train mode===
         model.train()
         train_loss = 0
-        train_loop = tqdm(train_loader, position=0, ncols=100, leave=False)
+        train_loop = tqdm(train_loader, leave=0, mininterval=1)
         for x, y in train_loop:
             x, y = x.to(config.device), y.to(config.device)
             y_pred = model(x)
             # targets的类型是要求long(int64)，这里对齐
             loss = criterion(y_pred, y.long())
             # 清零梯度，反向传播，更新权重
-            scheduler.zero_grad()
+            optimizer.zero_grad()
             loss.backward()
-            scheduler.step()
+            optimizer.step()
             # 进度条设置
+            train_loop.set_postfix({'loss': loss.item()},refresh=False)
             train_loop.set_description(f'Epoch [{epoch}/{config.n_epoches}]')
-            train_loop.set_postfix({'loss': loss.item()})
+            
             train_loss += loss.item()
         train_loss = train_loss / len(train_loader.dataset)
         record['train_loss'].append(train_loss)
@@ -252,7 +252,7 @@ class config:
     def __init__(self):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.seed = 45
-        self.batch_size = 1024
+        self.batch_size = 256
         self.valid_ratio = 0.1
         self.folder = 'run'
         # 路径名不能出现冒号
@@ -309,7 +309,7 @@ if __name__ == '__main__':
                                 batch_size=config.batch_size,
                                 shuffle=True,
                                 pin_memory=True,
-                                num_workers=1,
+                                num_workers=0,
                                 drop_last=True),
         [train_dataset, valid_dataset])
 
@@ -344,5 +344,4 @@ if __name__ == '__main__':
     #===incorrect comparasion===
     incorrect_plot(test_data, preds, incorrect_index)
     print('===FINISH!===')
-    print(f'Total time: {end_time - start_time:.2f} seconds')
     print(f'Total time: {end_time - start_time:.2f} seconds')
