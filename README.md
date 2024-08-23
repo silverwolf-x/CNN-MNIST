@@ -43,3 +43,10 @@ UserWarning: (Triggered internally at  ..\torch\csrc\utils\tensor_numpy.cpp:180.
 TODO list:
 1. 比较各optim收敛速率
 2. 改为轻量代码
+
+TODO: 解耦各板块,config使用yaml输入
+util.py
+train.py
+model.py
+其中模型增加Resnet9
+[Resnet9](https://github.com/VanekPetr/ResNet-9/blob/main/model.py)

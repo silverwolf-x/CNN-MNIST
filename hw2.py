@@ -98,7 +98,7 @@ class MyModel(nn.Module):
 def trainer(train_loader, valid_loader, model):
     #===prepare===
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.ASGD(model.parameters())# 变化的学习率
+    optimizer = torch.optim.NAdam(model.parameters())# 变化的学习率
     early_stop_count = 0
     record = {
         'train_loss': [],
@@ -246,13 +246,14 @@ def incorrect_plot(test_data, preds, incorrect_index):
     plt.show()
 
 
+
 class config:
     '''超参数设定，用`print(pd.DataFrame([config.__dict__]))`查看当前参数'''
 
     def __init__(self):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.seed = 45
-        self.batch_size = 256
+        self.batch_size = 1000 
         self.valid_ratio = 0.1
         self.folder = 'run'
         # 路径名不能出现冒号
@@ -260,8 +261,8 @@ class config:
         #-==Important Hyperparameters===
         self.gamma = 0.7
         self.early_stop = 3
-        self.learning_rate = 10e-3
-        self.n_epoches = 100
+        self.learning_rate = 1e-4
+        self.n_epoches = 10
 
     def save(self, path: str):
         if not os.path.exists(self.folder):
@@ -322,7 +323,7 @@ if __name__ == '__main__':
     #===predict===
     model = MyModel().to(config.device)
     model.load_state_dict(
-        torch.load(config.save_model(best_loss), map_location=config.device))
+        torch.load(config.save_model(best_loss), map_location=config.device, weights_only=True))
     # 使用之前的model迁移学习
     # model.load_state_dict(torch.load(r'.\run\2023-04-18_22.38_epoch1000_score0.989000_model.ckpt',map_location=config.device),strict=False)
     preds, accuracy, incorrect_index = predict(test_data, model)
