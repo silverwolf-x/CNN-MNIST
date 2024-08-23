@@ -32,10 +32,15 @@ else:
     print('No modelframe to train!')
     os._exit()
 
+time_flag = True # 防止跨分钟训练导致重命名错误
+T = None
 def save_file(path: str):
-    if not os.path.exists(config.folder):
-        os.makedirs(config.folder)
-    time_str = time.strftime(r"%Y-%m-%d_%H.%M_", time.localtime())
+    os.makedirs(config.folder) if not os.path.exists(config.folder) else True
+    global time_flag,T
+    if time_flag:
+        T = time.localtime()
+        time_flag = False
+    time_str = time.strftime(r"%Y-%m-%d_%H.%M_", T)
     return os.path.join(config.folder, time_str + path)
 
 def save_model(loss, accuracy=None):

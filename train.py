@@ -1,11 +1,11 @@
 import torch
 from set_config import config,save_model
 from tqdm import tqdm
-
+import logging
 def trainer(train_loader, valid_loader, model):
     #===prepare===
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters())# 变化的学习率
+    optimizer = torch.optim.NAdam(model.parameters())# 变化的学习率
     early_stop_count = 0
     record = {
         'train_loss': [],
@@ -19,7 +19,7 @@ def trainer(train_loader, valid_loader, model):
         #===train mode===
         model.train()
         train_loss = 0
-        train_loop = tqdm(train_loader, leave=0, mininterval=1)
+        train_loop = tqdm(train_loader, leave=0, mininterval=1,maxinterval=float('inf'),dynamic_ncols=True)
         for x, y in train_loop:
             x, y = x.to(config.device), y.to(config.device)
             y_pred = model(x)
@@ -30,9 +30,9 @@ def trainer(train_loader, valid_loader, model):
             loss.backward()
             optimizer.step()
             # 进度条设置
-            train_loop.set_postfix({'loss': loss.item()},refresh=False)
+            L  = loss.item()
             train_loop.set_description(f'Epoch [{epoch}/{config.n_epoches}]')
-            
+            train_loop.set_postfix({'loss':L},refresh=False)
             train_loss += loss.item()
         train_loss = train_loss / len(train_loader.dataset)
         record['train_loss'].append(train_loss)
@@ -59,19 +59,19 @@ def trainer(train_loader, valid_loader, model):
         if record['valid_loss'][-1] < record['best_loss']:
             record['best_loss'] = record['valid_loss'][-1]
             record['best_epoch'] = epoch
-            print(
+            logging.info(
                 f"Now model with loss {record['best_loss']:.2e}, valid accuracy {record['valid_acc'][-1]:.4f}... from epoch {epoch}"
             )
             early_stop_count = 0
         else:
             early_stop_count += 1
         if early_stop_count >= config.early_stop:
-            print(
+            logging.info(
                 f'Model is not improving for {config.early_stop} epoches. The last epoch is {epoch}.'
             )
             break
     torch.save(model.state_dict(), save_model(record['best_loss']))
-    print(
+    logging.info(
         f"Saving model with loss {record['best_loss']:4f}... from epoch {record['best_epoch']}"
     )
     return record['train_loss'], record['valid_loss'], record['best_loss']

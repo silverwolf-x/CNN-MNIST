@@ -1,6 +1,6 @@
 # !/usr/bin/env python3
 # -*- coding: utf-8 -*-
-r'''
+r"""
 @ author: 何雨轩
 @ title: homework 2: MINST
 @ description:手写数字识别--分类问题
@@ -29,7 +29,7 @@ UserWarning: (Triggered internally at  ..\torch\csrc\utils\tensor_numpy.cpp:180.
 
 @ v1.1 2023-04-19
 增加了绘制错误分辨图形的可视化展示
-'''
+"""
 
 import os
 import torch
@@ -37,78 +37,89 @@ from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 import time
 from sklearn.metrics import confusion_matrix
+import logging
+
 # 防止torch包与Anaconda环境中的同一个文件出现了冲突，画不出图
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 # ===========
 # from model import CNN as MyModel
-from utils import same_seed, cm_plot,incorrect_plot,loss_plot
-from train import trainer,predict
-from set_config import config,save_model, MyModel
- 
-if __name__ == '__main__':
+from utils import same_seed, cm_plot, incorrect_plot, loss_plot
+from train import trainer, predict
+from set_config import config, save_model, MyModel, save_file
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s:[%(asctime)s][%(filename)s]: %(message)s',
+    datefmt='%m%d_%H:%M',
+    handlers=[
+        logging.FileHandler(save_file("training.log")),
+        logging.StreamHandler(),  # 既输出log,也输出终端
+    ],
+)
+
+if __name__ == "__main__":
     start_time = time.time()  # 获取当前时间
     start_time = time.time()  # 获取当前时间
 
     same_seed(config.seed)
-    print(f'{torch.__version__=}\n{config.device=}')
+    logging.info(f"{torch.__version__=}\n{config.device=}")
 
-
-    #===data processing===将原数据<class 'PIL.Image.Image'>转成tensor，并作标准化处理
+    # ===data processing===将原数据<class 'PIL.Image.Image'>转成tensor，并作标准化处理
     transform = transforms.Compose([transforms.ToTensor()])
-    train_data = datasets.MNIST(root='./',
-                                train=True,
-                                download=True,
-                                transform=transform)
-    test_data = datasets.MNIST(root='./',
-                               train=False,
-                               download=True,
-                               transform=transform)
+    train_data = datasets.MNIST(
+        root="./", train=True, download=True, transform=transform
+    )
+    test_data = datasets.MNIST(
+        root="./", train=False, download=True, transform=transform
+    )
 
     n_valid = int(len(train_data) * config.valid_ratio)
     n_train = len(train_data) - n_valid
     train_dataset, valid_dataset = random_split(
-        train_data, [n_train, n_valid],
-        torch.Generator().manual_seed(config.seed))
+        train_data, [n_train, n_valid], torch.Generator().manual_seed(config.seed)
+    )
 
-    #======data processing end==
+    # ======data processing end==
     train_loader, valid_loader = map(
-        lambda data: DataLoader(data,
-                                batch_size=config.batch_size,
-                                shuffle=True,
-                                pin_memory=True,
-                                num_workers=0,
-                                drop_last=True),
-        [train_dataset, valid_dataset])
+        lambda data: DataLoader(
+            data,
+            batch_size=config.batch_size,
+            shuffle=True,
+            pin_memory=True,
+            num_workers=0,
+            drop_last=True,
+        ),
+        [train_dataset, valid_dataset],
+    )
 
-    #===training===
+    # ===training===
     model = MyModel().to(config.device)
-    # print(model)
-    train_loss, valid_loss, best_loss = trainer(train_loader, valid_loader,
-                                                model)
+    # logging.info(model)
+    train_loss, valid_loss, best_loss = trainer(train_loader, valid_loader, model)
 
-    #===predict===
+    # ===predict===
     model = MyModel().to(config.device)
     model.load_state_dict(
-        torch.load(save_model(best_loss), map_location=config.device, weights_only=True))
+        torch.load(save_model(best_loss), map_location=config.device, weights_only=True)
+    )
     # 使用之前的model迁移学习
     # model.load_state_dict(torch.load(r'.\run\2023-04-18_22.38_epoch1000_score0.989000_model.ckpt',map_location=config.device),strict=False)
     preds, accuracy, incorrect_index = predict(test_data, model)
-    print(f'test accuracy:{accuracy:.4f}')
-    os.rename(save_model(best_loss),
-              save_model(best_loss, accuracy))
+    logging.info(f"test accuracy:{accuracy:.4f}")
+    os.rename(save_model(best_loss), save_model(best_loss, accuracy))
 
-    #===confusion_matrix===
-    cm = confusion_matrix(test_data.targets.numpy(),
-                          preds,
-                          labels=[i for i in range(10)])
+    # ===confusion_matrix===
+    cm = confusion_matrix(
+        test_data.targets.numpy(), preds, labels=[i for i in range(10)]
+    )
     end_time = time.time()
 
-    #===plot loss===
+    # ===plot loss===
     loss_plot(train_loss, valid_loss)
     cm_plot(cm, accuracy)
-    print(cm)
+    logging.info(cm)
 
-    #===incorrect comparasion===
+    # ===incorrect comparasion===
     incorrect_plot(test_data, preds, incorrect_index)
-    print('===FINISH!===')
-    print(f'Total time: {end_time - start_time:.2f} seconds')
+    logging.info("===FINISH!===")
+    logging.info(f"Total time: {end_time - start_time:.2f} seconds")

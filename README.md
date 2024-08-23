@@ -50,3 +50,10 @@ train.py
 model.py
 其中模型增加Resnet9
 [Resnet9](https://github.com/VanekPetr/ResNet-9/blob/main/model.py)
+
+## v2.0 beta
+- [hw2.py][logging.StreamHandler()]同时输出log和终端
+- 解耦模块
+- [set_config.py][save_file()]修复设置时间重命名时的错位
+现在MNIST到达一个阶段，准确率达到98.8%左右
+之后更换另外一个主题训练
