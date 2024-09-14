@@ -36,7 +36,7 @@ def incorrect_plot(test_data, preds, incorrect_index):
     axs[0].imshow(make_grid(images, nrow=fix_rows).permute(1, 2, 0))
     axs[0].set_title('True images')
 
-    white_image = torch.ones_like(images[0]).fill_(255)
+    white_image = torch.ones_like(images[0],dtype=int).fill_(255)
     axs[1].imshow(
         make_grid([white_image] * num_images, nrow=fix_rows).permute(1, 2, 0))
     axs[1].set_title('Predicts')
