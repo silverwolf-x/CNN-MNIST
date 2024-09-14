@@ -117,7 +117,7 @@ if __name__ == "__main__":
     # ===plot loss===
     loss_plot(train_loss, valid_loss)
     cm_plot(cm, accuracy)
-    logging.info(cm)
+    logging.info(f'\n{cm}')
 
     # ===incorrect comparasion===
     incorrect_plot(test_data, preds, incorrect_index)
