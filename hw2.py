@@ -38,6 +38,7 @@ from torchvision import datasets, transforms
 import time
 from sklearn.metrics import confusion_matrix
 import logging
+import yaml
 
 # 防止torch包与Anaconda环境中的同一个文件出现了冲突，画不出图
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -49,8 +50,8 @@ from set_config import config, save_model, MyModel, save_file
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(levelname)s:[%(asctime)s][%(filename)s]: %(message)s',
-    datefmt='%m%d_%H:%M',
+    format="%(levelname)s:[%(asctime)s][%(filename)s]: %(message)s",
+    datefmt="%m%d_%H:%M",
     handlers=[
         logging.FileHandler(save_file("training.log")),
         logging.StreamHandler(),  # 既输出log,也输出终端
@@ -63,6 +64,10 @@ if __name__ == "__main__":
 
     same_seed(config.seed)
     logging.info(f"{torch.__version__=}\n{config.device=}")
+
+    with open("config.yaml", "r") as file:
+        yaml_content = yaml.safe_load(file)
+        logging.info(yaml_content)
 
     # ===data processing===将原数据<class 'PIL.Image.Image'>转成tensor，并作标准化处理
     transform = transforms.Compose([transforms.ToTensor()])
@@ -117,7 +122,7 @@ if __name__ == "__main__":
     # ===plot loss===
     loss_plot(train_loss, valid_loss)
     cm_plot(cm, accuracy)
-    logging.info(f'\n{cm}')
+    logging.info(f"\n{cm}")
 
     # ===incorrect comparasion===
     incorrect_plot(test_data, preds, incorrect_index)

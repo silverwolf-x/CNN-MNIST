@@ -57,3 +57,6 @@ model.py
 - [set_config.py][save_file()]修复设置时间重命名时的错位
 现在MNIST到达一个阶段，准确率达到98.8%左右
 之后更换另外一个主题训练
+
+## v2.1 alpha
+使用AdamW+余弦lr，灵感来自[LORA训练](https://zhuanlan.zhihu.com/p/618758020)，参考[余弦退火学习率](https://zhuanlan.zhihu.com/p/261134624)，效果一般般
