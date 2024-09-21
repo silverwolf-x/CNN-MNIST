@@ -72,7 +72,7 @@ def trainer(train_loader, valid_loader, model):
             break
     torch.save(model.state_dict(), save_model(record['best_loss']))
     logging.info(
-        f"Saving model with loss {record['best_loss']:4f}... from epoch {record['best_epoch']}"
+        f"Saving model with loss {record['best_loss']:.2e}... from epoch {record['best_epoch']}"
     )
     return record['train_loss'], record['valid_loss'], record['best_loss']
 
