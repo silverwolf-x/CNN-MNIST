@@ -1,4 +1,7 @@
 # torch在pytorch官网中下载cuda版本
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch
+torchvision
 tqdm
 numpy
 pandas
