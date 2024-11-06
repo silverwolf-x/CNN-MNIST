@@ -38,15 +38,15 @@ from torchvision import datasets, transforms
 import time
 from sklearn.metrics import confusion_matrix
 import logging
-import yaml
 
 # 防止torch包与Anaconda环境中的同一个文件出现了冲突，画不出图
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 # ===========
-# from model import CNN as MyModel
-from utils import same_seed, cm_plot, incorrect_plot, loss_plot
+from utils import same_seed, cm_plot, incorrect_plot, loss_plot, save_model, save_file
 from train import trainer, predict
-from set_config import config, save_model, MyModel, save_file
+from config import config
+
+MyModel = config.model
 
 logging.basicConfig(
     level=logging.INFO,
@@ -58,17 +58,8 @@ logging.basicConfig(
     ],
 )
 
-if __name__ == "__main__":
-    start_time = time.time()  # 获取当前时间
-    start_time = time.time()  # 获取当前时间
 
-    same_seed(config.seed)
-    logging.info(f"{torch.__version__=}\n{config.device=}")
-
-    with open("config.yaml", "r") as file:
-        yaml_content = yaml.safe_load(file)
-        logging.info(yaml_content)
-
+def dataprocessing(config):
     # ===data processing===将原数据<class 'PIL.Image.Image'>转成tensor，并作标准化处理
     transform = transforms.Compose([transforms.ToTensor()])
     train_data = datasets.MNIST(
@@ -96,35 +87,38 @@ if __name__ == "__main__":
         ),
         [train_dataset, valid_dataset],
     )
+    return train_loader, valid_loader, test_data
 
-    # ===training===
-    model = MyModel().to(config.device)
-    # logging.info(model)
-    train_loss, valid_loss, best_loss = trainer(train_loader, valid_loader, model)
 
-    # ===predict===
+if __name__ == "__main__":
+    start_time = time.time()  # 获取当前时间
+
+    same_seed(config.seed)
+    logging.info(f"{torch.__version__=}\t{config.device=}")
+    logging.info(config)
+
+    train_loader, valid_loader, test_data = dataprocessing(config)
     model = MyModel().to(config.device)
+    train_loss, valid_loss, best_loss = trainer(
+        train_loader, valid_loader, model, config
+    )
     model.load_state_dict(
         torch.load(save_model(best_loss), map_location=config.device, weights_only=True)
     )
     # 使用之前的model迁移学习
     # model.load_state_dict(torch.load(r'.\run\2023-04-18_22.38_epoch1000_score0.989000_model.ckpt',map_location=config.device),strict=False)
-    preds, accuracy, incorrect_index = predict(test_data, model)
+    preds, accuracy, incorrect_index = predict(test_data, model, config)
     logging.info(f"test accuracy:{accuracy:.4f}")
     os.rename(save_model(best_loss), save_model(best_loss, accuracy))
 
-    # ===confusion_matrix===
     cm = confusion_matrix(
         test_data.targets.numpy(), preds, labels=[i for i in range(10)]
     )
-    end_time = time.time()
 
-    # ===plot loss===
     loss_plot(train_loss, valid_loss)
     cm_plot(cm, accuracy)
     logging.info(f"\n{cm}")
-
-    # ===incorrect comparasion===
     incorrect_plot(test_data, preds, incorrect_index)
     logging.info("===FINISH!===")
+    end_time = time.time()
     logging.info(f"Total time: {end_time - start_time:.2f} seconds")

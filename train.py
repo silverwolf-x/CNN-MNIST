@@ -1,10 +1,11 @@
 import torch
-from set_config import config, save_model
 from tqdm import tqdm
 import logging
 
+from utils import save_model
 
-def trainer(train_loader, valid_loader, model):
+
+def trainer(train_loader, valid_loader, model, config):
     # ===prepare===
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters())
@@ -104,7 +105,7 @@ def trainer(train_loader, valid_loader, model):
     return record["train_loss"], record["valid_loss"], record["best_loss"]
 
 
-def predict(test_data, model):
+def predict(test_data, model, config):
     """注意这里载入data不是loader一批批载入
     返回pred的值，错误率，错误的坐标"""
     model.eval()
