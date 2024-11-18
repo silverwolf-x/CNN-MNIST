@@ -1,7 +1,7 @@
 import torch
 from tqdm import tqdm
 import logging
-
+import numpy as np
 from utils import save_model
 
 
@@ -105,18 +105,28 @@ def trainer(train_loader, valid_loader, model, config):
 
 
 def predict(test_data, model, config):
-    """注意这里载入data不是loader一批批载入
-    返回pred的值，错误率，错误的坐标"""
+    """
+    Predicts the output for the given test data.
+    Returns:
+        preds (numpy array), accuracy (float), incorrect_index (list of indices of incorrect predictions)
+    """
     model.eval()
     preds = []
     incorrect_index = []
-    for i, (x, y) in tqdm(enumerate(test_data), position=0, ncols=100):
-        # (B, 28, 28)-->(B, 1, 28, 28)
-        x = torch.unsqueeze(x, dim=1).to(config.device)
-        with torch.no_grad():
+
+    test_loader = torch.utils.data.DataLoader(
+        test_data, batch_size=config.batch_size, shuffle=False
+    )
+
+    with torch.no_grad():
+        for batch, (x, y) in tqdm(enumerate(test_loader)):
+            x = x.to(config.device)
             output = model(x)
-            y_pred = output.argmax(dim=1).cpu().numpy().squeeze()
-            preds.append(y_pred)
-            if y_pred != y:
-                incorrect_index.append(i)
-    return preds, 1 - len(incorrect_index) / len(test_data), incorrect_index
+            y_pred = output.argmax(dim=1).cpu().numpy()
+            preds.extend(y_pred)
+
+            incorrect_index.extend(np.where(y_pred != y.numpy())[0])
+
+    accuracy = 1 - len(incorrect_index) / len(test_data)
+
+    return preds, accuracy, incorrect_index
