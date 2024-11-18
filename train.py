@@ -7,17 +7,16 @@ from utils import save_model
 
 def trainer(train_loader, valid_loader, model, config):
     # ===prepare===
-    criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(model.parameters())
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=2)
-    """
-    以T_0=5, T_mult=1为例:
-    T_0:学习率第一次回到初始值的epoch位置.
-    T_mult:T_mult等于是与上一周期的倍数关系
-        -mult应该是multiply的意思，即T_mult=2意思是周期翻倍，第一个周期是1，则第二个周期是2，第三个周期是4。。。
-    example:
-        T_0=5, T_mult=1
-    """
+    # criterion = torch.nn.CrossEntropyLoss()
+    # optimizer = torch.optim.NAdam(model.parameters())
+    # # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=2)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50)
+
+    criterion = config.criterion()
+    optimizer = config.optimizer(model.parameters())
+    scheduler = config.scheduler(
+        optimizer, T_max=config.n_epoches
+    )  #  希望 learning rate 每个epoch更新一次
 
     early_stop_count = 0
     record = {
@@ -88,7 +87,7 @@ def trainer(train_loader, valid_loader, model, config):
             record["best_loss"] = record["valid_loss"][-1]
             record["best_epoch"] = epoch
             logging.info(
-                f"Now model with loss {record['best_loss']:.2e}, valid accuracy {record['valid_acc'][-1]:.4f}... from epoch {epoch}"
+                f"Now model with valid loss {record['best_loss']:.2e}, valid accuracy {record['valid_acc'][-1]:.4f}... from epoch {epoch}"
             )
             early_stop_count = 0
         else:
@@ -100,7 +99,7 @@ def trainer(train_loader, valid_loader, model, config):
             break
     torch.save(model.state_dict(), save_model(record["best_loss"]))
     logging.info(
-        f"Saving model with loss {record['best_loss']:.2e}... from epoch {record['best_epoch']}"
+        f"Saving model with valid loss {record['best_loss']:.2e}... from epoch {record['best_epoch']}"
     )
     return record["train_loss"], record["valid_loss"], record["best_loss"]
 
