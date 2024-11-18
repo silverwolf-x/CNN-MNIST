@@ -60,3 +60,13 @@ model.py
 
 ## v2.1 alpha
 使用AdamW+余弦lr，灵感来自[LORA训练](https://zhuanlan.zhihu.com/p/618758020)，参考[余弦退火学习率](https://zhuanlan.zhihu.com/p/261134624)，效果一般般
+
+## v2.2
+
+- refactor: 使用dataclass规范config
+- feat: 使用resnet18架构（不用预训练权重）
+- perf: resnet + CE loss + NAdam + 每个epoch更新一次余弦退火lr调整 = valid loss 3.18e-05 + test acc 0.9920 (目前最高)
+
+> [!note]
+> 灵感来源: [余弦退火设置](https://blog.csdn.net/qq_29007291/article/details/126094939)
+》[骚操作](https://www.zhihu.com/question/666647497/answer/3627168088)
