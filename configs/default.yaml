@@ -1,0 +1,68 @@
+seed: 42
+
+model:
+  # 你可以把 optimizer.lr 看作“起点”，max_lr 看作“峰值”。
+  _target_: src.models.cnn.SimpleCNN
+  num_classes: 10
+
+
+
+data:
+  data_dir: ./
+  batch_size: 2048
+  num_workers: 0 # 小数据启动/销毁 worker 比加载数据还慢 → 反而拖慢速度
+  valid_ratio: 0.2
+
+train_module:
+  # 你可以把 optimizer.lr 看作“起点”，max_lr 看作“峰值”。
+  optimizer:
+    _target_: torch.optim.AdamW
+    lr: 1e-3
+
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.OneCycleLR # 先升后降（+可调动量），内建 warmup 阶段
+    max_lr : 1e-2
+    total_steps: -1 # 用整个训练的步进批次总数，见https://lightning.ai/docs/pytorch/stable/common/optimization.html#total-stepping-batches，实际需要在configure_optimizers()中设置调用自动计算的总steps数
+
+
+callbacks:
+  model_checkpoint:
+    monitor: val_loss
+    save_top_k: 1
+    mode: min
+    dirpath: ${hydra:run.dir}
+  early_stopping:
+    monitor: val_loss
+    patience: 3
+    mode: min
+
+
+trainer: # https://lightning.ai/docs/pytorch/stable/common/trainer.html
+  max_epochs: 10
+  accelerator: auto
+  precision: 16-mixed
+  log_every_n_steps: 10
+  deterministic: false # 确保可重复性，与benchmark互斥
+  benchmark: true # 如果输入大小不变，将此标志设置为 True 可以提高系统速度。否则可能会降低系统速度。当遇到新的输入大小时，CUDNN 自动调节器会尝试找到最适合硬件的算法。这也可能会增加内存使用量。
+  default_root_dir: ${hydra:run.dir} # trainer日志统一输出到hypra目录
+  # fast_dev_run: true # 仅运行一个批次的训练和验证步骤。用于调试模型和数据管道。设置为 True 时，max_epochs 和 max_steps 将被忽略。
+
+
+
+
+
+hydra: # 随便用hydra运行一次后看存档的hydra.yaml的默认设置更改。见https://hydra.cc/docs/configure_hydra/intro/
+  run:
+    dir: ./logs/${now:%Y%m%d_%H%M}  # 统一输出目录
+  job_logging:
+    formatters:
+      simple:
+        # format: '[%(levelname)s][%(asctime)s][%(name).17s]%(message)s' # 纯配置截断：用 %(name).Ns 精度截断，N 取你顶层名字的最大长度。
+        format: '[%(levelname)s][%(asctime)s]%(message)s' # 纯配置截断：用 %(name).Ns 精度截断，N 取你顶层名字的最大长度。
+        datefmt: '%H:%M:%S'
+    root:
+      handlers: 
+      - file # 只在文件中输出，pytorch_lightning重复输出到console
+      # - console
+      level: INFO
+  output_subdir: '' # hypra保存的配置不要有子目录

@@ -1,8 +1,7 @@
-import torch.nn as nn
-import torchvision.models as models
+from torch import nn
 
 
-class CNN(nn.Module):
+class SimpleCNN(nn.Module):
     """
     输入维度: (1, 28, 28)
 
@@ -15,7 +14,7 @@ class CNN(nn.Module):
     """
 
     def __init__(self, num_classes=10):
-        super(CNN, self).__init__()
+        super(SimpleCNN, self).__init__()
 
         # https://github.com/pytorch/examples/blob/main/mnist/main.py
         self.cnn = nn.Sequential(  # (1,28,28)
@@ -27,29 +26,10 @@ class CNN(nn.Module):
             nn.Dropout(0.25),  # (64 ,12, 12)
         )
         self.flatten = nn.Flatten()
-        self.fc = nn.Sequential(
-            nn.Linear(64 * 12 * 12, 128), nn.Dropout(), nn.Linear(128, num_classes)
-        )
+        self.fc = nn.Sequential(nn.Linear(64 * 12 * 12, 128), nn.Dropout(), nn.Linear(128, num_classes))
 
     def forward(self, x):
         x = self.cnn(x)
         x = self.flatten(x)
         x = self.fc(x)
-        return x
-
-
-class ResNet(nn.Module):
-    def __init__(self, num_classes=10):
-        super(ResNet, self).__init__()
-        self.resnet = models.resnet18()
-
-        # Replace the first convolutional layer to accept 1-channel input
-        # Replace the last fully connected layer
-        self.resnet.conv1 = nn.Conv2d(
-            1, 64, kernel_size=7, stride=2, padding=3, bias=False
-        )
-        self.resnet.fc = nn.Linear(self.resnet.fc.in_features, num_classes)
-
-    def forward(self, x):
-        x = self.resnet(x)
         return x

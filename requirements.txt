@@ -1,11 +1,8 @@
 # torch在pytorch官网中下载cuda版本
---extra-index-url https://download.pytorch.org/whl/cu124
+--extra-index-url https://download.pytorch.org/whl/cu126
 torch
 torchvision
-tqdm
+hydra-core
+lightning[extra]
 numpy
-pandas
-matplotlib
-scikit-learn
-seaborn
-pyyaml
+

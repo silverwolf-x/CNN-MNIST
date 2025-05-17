@@ -1,72 +1,118 @@
-# 深度学习测试demo
 
-手写数字识别--十分类问题
 
-- MNIST 数据集来自美国国家标准与技术研究所National Institute of Standards and Technology (NIST).
-- 60000张训练集，10000张测试集，
-- 1\*28\*28图片
-- H_out = H_in - Kernel_size + 1
-- H_out = H_in \ Pooling_size
+## 概览
 
-使用卷积神经网络CNN，分类交叉熵Cross-Entropy做损失函数，Adam做优化器做图片的分类
+本项目基于**PyTorch Lightning** ，实现了 **MNIST 手写数字分类任务**，包含以下内容：  
+* 使用 **PyTorch Lightning** 模块化构建训练与推理流程，简洁清晰、易于维护；
+* 借助 [**Hydra**](https://hydra.cc/) 管理配置项与训练输出，支持动态参数覆盖与多实验管理；
+* 在默认配置下训练 CNN 模型，验证集 F1 分数：0.9874，测试集 F1 分数：0.9883
 
-net的output是分类的数目，先用classes储存所有类别，之后用`torch.max(pred,dim=1)[1]`返回分类可能性最大的那个类的index
 
-## v0.1: 2023-04-15
-自带`dataset`的函数：`len(s)`查看数据量,`s.data`查看x数据,`s.targets`查看y
 
-回顾`TensorDataset(x,y)`把tensor打包为dataset
-`torch.FloatTensor(numpy)`，把numpy转化为小数点形式的tensor
 
-## v0.2
-```python
-UserWarning: (Triggered internally at  ..\torch\csrc\utils\tensor_numpy.cpp:180.)
-  return torch.from_numpy(parsed.astype(m[2], copy=False)).view(*s
+## 特性
+
+* **统一日志输出管理**
+  `train.py` 使用 **PyTorch Lightning** 与 **Hydra** 集成，将所有日志统一记录至 Hydra 默认日志文件 `train.log`，并通过 `rank_zero_info` 输出关键日志。训练完成后自动打印 **测试集指标** 和 **混淆矩阵**。
+
+* **模块结构解耦**
+  `src/train_module.py` 中定义了自定义的 `LightningModule`，实现训练、验证与测试逻辑的解耦。使用回调 `ModelSummary(max_depth=2)` 自动输出模型各子模块参数结构，方便调试与结构检查。
+
+* **标准化数据传输**
+  `src/data_module.py` 中的 `MNISTDataModule` 将数据加载流程封装统一，**使用字典（dict）格式**传递数据，便于扩展与集成。
+
+* **便捷推理接口**
+  通过 `predict.py` 并指定 `--log_id`，即可自动加载对应日志目录下保存的模型权重和配置文件，实现一致性推理，**无需手动指定路径或参数**。
+
+
+
+
+## 仓库结构
+
 ```
-点击跳转到该py文件，改为copy=Ture就没有这个warning了
+.
+├── configs/                     # 配置文件目录
+│   └── default.yaml             
+├── models/                      # 模型结构定义
+│   ├── cnn.py                   
+│   └── ...                      
+├── src/                         
+│   ├── data_module.py           # 定义 MNISTDataModule（数据加载与预处理）
+│   └── train_module.py          # 定义 LightningModule（模型训练）
+├── train.py                     # 训练脚本（运行入口）
+├── predict.py                   # 推理脚本（模型预测）
+├── requirements.txt             
+└── README.md                    # 说明文档（本文件）
+```
 
-## v1.0 2023-04-18
-修改了因为自定义split函数导致traindata拆分不均，导致准确率最高0.7的错误。现在准确率能达到0.98，回归正常水平
+## 快速开始
 
-## v1.1 2023-04-19
-增加了绘制错误分辨图形的可视化展示
+## 0. 安装依赖
 
-## v1.2 2023-11-19
-上传github存档
+```bash
+git clone ...
+conda create -n mnist python=3.13
+conda activate mnist
+pip install -r requirements.txt
+```
 
-## v2.0 alpha 2024-09-01
+## 1. 训练模型（Train）
 
-- 暂时取消学习率，即使研究表明衰减自适应优化器和需要不需要LR scheduler几乎是的没有关系的，他们经常需要同时（叠加）工作。https://www.zhihu.com/question/315772308/answer/1636730368
-- numworker = 1 -->0 ，加快整体速度
-- train_loop 新设置mininterval=1，并在train_loop.set_postfix设置refresh=False
-- batch:256
-TODO list:
-1. 比较各optim收敛速率
-2. 改为轻量代码
+默认配置文件路径为 `configs/default.yaml`。
 
-TODO: 解耦各板块,config使用yaml输入
-util.py
-train.py
-model.py
-其中模型增加Resnet9
-[Resnet9](https://github.com/VanekPetr/ResNet-9/blob/main/model.py)
+本项目使用 **Hydra** 包进行配置管理，支持模块化组织配置项，并可通过命令行以“点号路径”的形式动态覆盖默认配置值，例如：
 
-## v2.0 beta
-- [hw2.py][logging.StreamHandler()]同时输出log和终端
-- 解耦模块
-- [set_config.py][save_file()]修复设置时间重命名时的错位
-现在MNIST到达一个阶段，准确率达到98.8%左右
-之后更换另外一个主题训练
+```bash
+# 使用默认配置训练模型：
+python train.py
 
-## v2.1 alpha
-使用AdamW+余弦lr，灵感来自[LORA训练](https://zhuanlan.zhihu.com/p/618758020)，参考[余弦退火学习率](https://zhuanlan.zhihu.com/p/261134624)，效果一般般
+# 更换配置训练模型(hypra默认接口)：
+python train.py --config-path configs --config-name default 
 
-## v2.2
+# 指定训练轮数等配置：
+python train.py trainer.max_epochs=2
+```
 
-- refactor: 使用dataclass规范config
-- feat: 使用resnet18架构（不用预训练权重）
-- perf: resnet + CE loss + NAdam + 每个epoch更新一次余弦退火lr调整 = valid loss 3.18e-05 + test acc 0.9920 (目前最高)
 
-> [!note]
-> 灵感来源: [余弦退火设置](https://blog.csdn.net/qq_29007291/article/details/126094939)
-> [骚操作](https://www.zhihu.com/question/666647497/answer/3627168088)
+
+### 主要参数
+
+* `model._target_`：指定所使用的模型类路径，通常对应于 `models` 模块中的某个模型结构，默认使用`src.models.cnn.SimpleCNN`。
+* `data.data_dir`：MNIST 数据集的下载与存储路径，用于数据加载。
+* `train_module.optimizer`：优化器配置，默认使用 `AdamW`。
+* `train_module.lr_scheduler`：学习率调度器配置，默认使用 `OneCycleLR`。
+* `trainer.max_epochs`：训练的最大轮数，默认值为 `10`。
+* `callbacks.early_stopping.patience`：早停策略中的容忍轮数，即在验证指标无提升的情况下允许继续训练的最大轮数。
+* `data.batch_size`：每个训练批次的样本数（批次大小）。
+* `hydra.run.dir`：Hydra 管理的运行目录，包含训练日志、模型权重文件以及配置（yaml）存档，默认时间戳自动生成目录`./logs/${now:%Y%m%d_%H%M}`。
+
+
+### 训练输出
+
+训练完成后，将在指定的 **`hydra.run.dir`** 目录下生成以下内容：
+
+* **配置文件**：包括 `config.yaml`、`hparams.yaml` 和 `overrides.yaml`，用于记录当前运行的完整配置快照，由 **Hydra** 自动保存。
+
+* **日志文件**
+  * `metrics.csv`：由 **PyTorch Lightning** 记录的训练与验证指标；
+  * `train.log`：训练过程中的详细日志信息，由 **Hydra** 管理。最终输出test_data的混淆矩阵和测试集指标
+
+* **模型文件**：`*.ckpt`，表示训练过程中保存的模型权重，默认保存性能最优模型，由 **PyTorch Lightning** 管理。
+
+
+
+### 2. 模型推理（Inference）
+
+找到对应的运行日志 ID（如：`20250517_2350`），该 ID 对应的是保存在 `logs/` 目录下的某次训练输出。运行以下命令，即可自动加载该目录下的模型（`.ckpt`）和配置文件，执行推理：
+
+```bash
+python predict.py --log_id=20250517_2350
+```
+
+结果在终端中输出 `test_data` 数据集的预测标签。
+
+
+## 许可证
+
+本项目采用 MIT 许可证，详情请见 [LICENSE](LICENSE) 文件。
+

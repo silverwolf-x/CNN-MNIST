@@ -1,9 +1,5 @@
-\run
-\material
-\MNIST
-test.ipynb
-Untitled-1.txt
-\raw
-\processed
+MNIST
 tempCodeRunnerFile.py
-\__pycache__
+__pycache__
+logs
+lightning_logs
