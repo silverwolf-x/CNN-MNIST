@@ -19,7 +19,7 @@
   `src/train_module.py` 中定义了自定义的 `LightningModule`，实现训练、验证与测试逻辑的解耦。使用回调 `ModelSummary(max_depth=2)` 自动输出模型各子模块参数结构，方便调试与结构检查。
 
 * **标准化数据传输**
-  `src/data_module.py` 中的 `MNISTDataModule` 将数据加载流程封装统一，**使用字典（dict）格式**传递数据，便于扩展与集成。
+  `src/data_module.py` 中的 `MNISTDataModule` 将数据加载流程封装统一，**使用字典**传递数据，便于扩展与集成。
 
 * **便捷推理接口**
   通过 `predict.py` 并指定 `--log_id`，即可自动加载对应日志目录下保存的模型权重和配置文件，实现一致性推理，**无需手动指定路径或参数**。
@@ -44,8 +44,6 @@
 ├── requirements.txt             
 └── README.md                    # 说明文档（本文件）
 ```
-
-## 快速开始
 
 ## 0. 安装依赖
 
@@ -101,7 +99,7 @@ python train.py trainer.max_epochs=2
 
 
 
-### 2. 模型推理（Inference）
+## 2. 模型推理（Inference）
 
 找到对应的运行日志 ID（如：`20250517_2350`），该 ID 对应的是保存在 `logs/` 目录下的某次训练输出。运行以下命令，即可自动加载该目录下的模型（`.ckpt`）和配置文件，执行推理：
 
@@ -110,9 +108,4 @@ python predict.py --log_id=20250517_2350
 ```
 
 结果在终端中输出 `test_data` 数据集的预测标签。
-
-
-## 许可证
-
-本项目采用 MIT 许可证，详情请见 [LICENSE](LICENSE) 文件。
 
