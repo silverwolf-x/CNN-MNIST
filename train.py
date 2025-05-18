@@ -6,7 +6,7 @@ import hydra
 import torch
 from omegaconf import DictConfig
 from pytorch_lightning import Trainer, seed_everything
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, ModelSummary
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, ModelSummary, StochasticWeightAveraging
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.profilers import SimpleProfiler
 from pytorch_lightning.utilities import rank_zero_info
@@ -20,7 +20,7 @@ torch.set_float32_matmul_precision("medium")
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 
-@hydra.main(config_path="configs", config_name="default", version_base=None)
+@hydra.main(config_path="configs", config_name="resnet", version_base=None)
 def main(cfg: DictConfig):
     # 0. 设置日志
     # 自动添加到hydra的logger中,具体样式通过hydra的配置文件进行配置
@@ -44,14 +44,14 @@ def main(cfg: DictConfig):
         ),
         EarlyStopping(**cfg.callbacks.early_stopping),
         ModelSummary(max_depth=2),
+        StochasticWeightAveraging(swa_lrs=1e-2),
     ]
     trainer = Trainer(
-        **cfg.trainer,
-        callbacks=callbacks,
-        logger=CSVLogger(cfg.trainer.default_root_dir, name=None, version=""),
+        **cfg.trainer, callbacks=callbacks, logger=CSVLogger(cfg.trainer.default_root_dir, name=None, version="")
     )
+
     # 4. 开始训练
-    trainer.fit(train_module, datamodule.train_dataloader(), datamodule.val_dataloader())
+    trainer.fit(train_module, datamodule=datamodule)
 
     # 5. 测试集性能
     test_metric = trainer.test(train_module, datamodule.test_dataloader())
