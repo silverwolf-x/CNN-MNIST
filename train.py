@@ -27,6 +27,9 @@ def main(cfg: DictConfig):
     logging.getLogger("pytorch_lightning").propagate = True
     logging.getLogger("lightning_fabric").propagate = True
 
+    log_path = next(h.baseFilename for h in logging.getLogger().handlers) # root logger
+    print(f"Log file located at: {log_path}")
+
     # 1. 数据模块
     seed_everything(cfg.seed, workers=True)
     datamodule = DataModule(**cfg.data)
@@ -60,6 +63,7 @@ def main(cfg: DictConfig):
     D = {k: round(v, 4) for k, v in test_metric[0].items()}
     rank_zero_info(f"\nTest metric: {D}")
 
+    
     # 6. 预测
     # predictions = trainer.predict(train_module, datamodule.test_dataloader())
 
