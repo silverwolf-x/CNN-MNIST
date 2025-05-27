@@ -1,4 +1,5 @@
 # torch在pytorch官网中下载cuda版本
+--index-url https://pypi.tuna.tsinghua.edu.cn/simple
 --extra-index-url https://download.pytorch.org/whl/cu126
 torch
 torchvision

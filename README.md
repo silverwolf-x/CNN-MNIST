@@ -44,7 +44,8 @@
 git clone ...
 conda create -n mnist python=3.13
 conda activate mnist
-pip install -r requirements.txt
+conda install uv # 并行下载pip
+uv pip install -r requirements.txt
 ```
 
 ### 1. 训练模型（Train）
@@ -122,7 +123,7 @@ python predict.py --log_id=20250517_2350
 * **EarlyStopping**：监控验证指标，遇到性能停滞时自动提前终止训练。
 * **Stochastic Weight Averaging**：启用 [SWA](https://pytorch.org/blog/pytorch-1.6-now-includes-stochastic-weight-averaging/)，在训练后期以较低学习率平均模型权重，提升泛化能力。
 * **ModelSummary**：使用 `ModelSummary(max_depth=2)` 回调自动打印模型各子模块层次结构。
-* **自动混合精度**：通过 `precision="16-mixed"` 启用 AMP，加速训练并显著节省显存。
+* **自动混合精度**：通过 `precision="bf16-mixed"` 启用 AMP，加速训练并显著节省显存。
 
 4. **模型服务化**
 
