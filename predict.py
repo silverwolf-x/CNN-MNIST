@@ -18,7 +18,9 @@ os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--log_id", help="日志目录名，例如 20250517_2350", default="20250517_2350")
+parser.add_argument(
+    "--log_id", help="日志目录名，例如 20250517_2350 ，默认取logs中最新的", default=max(os.listdir("logs"))
+)
 args = parser.parse_args()
 
 PATH = os.path.join("logs", args.log_id)
@@ -30,7 +32,7 @@ if __name__ == "__main__":
             config_name="config",
             overrides=["hydra.output_subdir=null", "trainer.default_root_dir=.", "+trainer.logger=false"],
         )  # 禁用hydra和trainer的logger
-
+    print(f"使用配置文件: {os.path.join(PATH, 'config.yaml')}")
     # 2. 自动查找ckpt文件
     checkpoint_path = next((os.path.join(PATH, f) for f in os.listdir(PATH) if f.endswith(".ckpt")), None)
     if not checkpoint_path:

@@ -14,7 +14,7 @@ class TrainModule(LightningModule):
         Args:
             model: torch.nn.Module, 模型
             num_classes: int, 类别数
-            cfg: DictConfig, 配置文件, 入仓为cfg.train_module
+            cfg: DictConfig, 配置文件, 入参为cfg.train_module
         """
         super().__init__()
         self.model = model
@@ -24,6 +24,7 @@ class TrainModule(LightningModule):
         self.acc = Accuracy(task="multiclass", num_classes=num_classes)
         self.test_cm.reset()
         self.cfg = cfg
+        self.save_hyperparameters(logger=False)  # 保存init传参到checkpoint中,不要存到logger避免启动写入额外耗时
 
     def forward(self, x):
         return self.model(x)
