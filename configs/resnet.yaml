@@ -18,11 +18,12 @@ train_module:
   optimizer:
     _target_: torch.optim.AdamW
     lr: 1e-3
+    fused: true
 
   lr_scheduler:
     _target_: torch.optim.lr_scheduler.OneCycleLR # 先升后降（+可调动量），内建 warmup 阶段
     max_lr : 1e-2
-    total_steps: -1 # 用整个训练的步进批次总数，见https://lightning.ai/docs/pytorch/stable/common/optimization.html#total-stepping-batches，实际需要在configure_optimizers()中设置调用自动计算的总steps数
+    total_steps: -1 # 用整个训练的步进批次总数，见https://lightning.ai/docs/pytorch/stable/common/optimization.html#total-stepping-batches，实际需要在TrainModule.configure_optimizers()中设置调用自动计算的总steps数
 
 
 callbacks:
